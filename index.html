@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Journal de trading</title>
+<style>
+  :root {
+    --bg: #0b0e11;
+    --card: #151a20;
+    --card-border: #262d36;
+    --text: #e8eaed;
+    --text-dim: #7c8794;
+    --long: #0ecb81;
+    --short: #f6465d;
+    --accent: #f0b90b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(14,203,129,0.06), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(246,70,93,0.06), transparent 40%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--text);
+  }
+  .mono { font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 16px 60px 16px; }
+
+  .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 20px 0; letter-spacing: -0.01em; }
+
+  .tabs { display: flex; gap: 4px; background: #12161c; border: 1px solid var(--card-border); border-radius: 12px; padding: 4px; margin-bottom: 16px; }
+  .tab-btn {
+    flex: 1; padding: 10px 6px; border-radius: 8px; border: none; background: transparent;
+    color: var(--text-dim); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+    font-family: inherit;
+  }
+  .tab-btn.active { background: #1e252e; color: var(--accent); }
+  .tab-btn.icon-only { flex: 0 0 42px; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 12px; }
+
+  .field { margin-bottom: 13px; }
+  label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 5px; }
+  .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; opacity: 0.75; }
+
+  input[type="text"], input[type="date"], input[type="time"] {
+    width: 100%; background: #0b0e11; border: 1px solid var(--card-border); border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font-size: 14.5px; outline: none; transition: border-color 0.15s;
+    font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
+  }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: #4b5563; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .dir-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dir-btn {
+    padding: 11px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--card-border); background: #0b0e11; color: var(--text-dim);
+    font-family: inherit; transition: all 0.15s;
+  }
+  .dir-btn.selected.achat { background: rgba(14,203,129,0.15); border-color: rgba(14,203,129,0.4); color: var(--long); }
+  .dir-btn.selected.vente { background: rgba(246,70,93,0.15); border-color: rgba(246,70,93,0.4); color: var(--short); }
+
+  .btn-primary {
+    width: 100%; background: var(--accent); color: #0b0e11; font-weight: 700; font-size: 15px;
+    padding: 13px; border: none; border-radius: 10px; cursor: pointer; font-family: inherit;
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-secondary {
+    width: 100%; background: transparent; color: var(--text-dim); font-size: 12.5px;
+    padding: 9px; border: 1px solid var(--card-border); border-radius: 8px; cursor: pointer;
+    font-family: inherit; margin-bottom: 10px;
+  }
+
+  .error-box { font-size: 13px; color: var(--short); background: rgba(246,70,93,0.08); border: 1px solid rgba(246,70,93,0.25); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; }
+  .warn-box { font-size: 12.5px; color: var(--accent); background: rgba(240,185,11,0.08); border: 1px solid rgba(240,185,11,0.25); border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; }
+
+  .trade-row { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+  .trade-bar { width: 3px; align-self: stretch; border-radius: 2px; }
+  .trade-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
+  .trade-meta .dir-achat { color: var(--long); font-weight: 600; }
+  .trade-meta .dir-vente { color: var(--short); font-weight: 600; }
+  .trade-main { font-size: 13.5px; color: #cbd5e1; }
+  .trade-notes { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trade-pnl { text-align: right; font-weight: 700; white-space: nowrap; }
+  .trade-del { color: #4b5563; background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; }
+  .trade-del:hover { color: var(--short); }
+  .empty-msg { text-align: center; color: var(--text-dim); font-size: 13.5px; padding: 40px 0; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .stat-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 13px; }
+  .stat-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+  .stat-value { font-size: 17px; font-weight: 700; font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace; }
+  .good { color: var(--long); } .bad { color: var(--short); }
+
+  .bar-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin-bottom: 7px; }
+  .bar-label { width: 34px; color: var(--text-dim); font-family: ui-monospace, monospace; font-size: 11px; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 18px; background: #0b0e11; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; }
+  .bar-value { width: 76px; text-align: right; font-family: ui-monospace, monospace; font-size: 11px; flex-shrink: 0; }
+  .bar-count { width: 28px; text-align: right; color: #4b5563; font-size: 10.5px; flex-shrink: 0; }
+
+  .month-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .month-table th { text-align: left; color: var(--text-dim); font-weight: 500; font-size: 11px; padding: 6px 8px; border-bottom: 1px solid var(--card-border); }
+  .month-table td { padding: 7px 8px; border-bottom: 1px solid #1a2028; font-family: ui-monospace, monospace; }
+  .month-table tr:last-child td { border-bottom: none; }
+
+  footer { font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 20px; line-height: 1.6; opacity: 0.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Trading journal</div>
+  <h1>Journal de trading</h1>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="add">Ajouter</button>
+    <button class="tab-btn" data-tab="history">Historique</button>
+    <button class="tab-btn" data-tab="stats">Stats</button>
+    <button class="tab-btn icon-only" data-tab="settings">⚙</button>
+  </div>
+
+  <div id="errorBox"></div>
+
+  <div id="tab-add" class="tab-content active">
+    <div class="card">
+      <div class="row2">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label>Heure d'entrée</label>
+          <input type="time" id="f-time">
+        </div>
+      </div>
+      <div class="field">
+        <label>Actif</label>
+        <input type="text" id="f-asset" value="BTCUSD">
+      </div>
+      <div class="field">
+        <label>Direction</label>
+        <div class="dir-toggle">
+          <button type="button" class="dir-btn achat selected" id="btn-achat">▲ Achat</button>
+          <button type="button" class="dir-btn vente" id="btn-vente">▼ Vente</button>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Prix d'entrée</label>
+          <input type="text" inputmode="decimal" id="f-entry" placeholder="ex : 64250">
+        </div>
+        <div class="field">
+          <label>Prix de sortie</label>
+          <input type="text" inputmode="decimal" id="f-exit" placeholder="ex : 65100">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Lot</label>
+          <input type="text" inputmode="decimal" id="f-lot" placeholder="ex : 0.15">
+        </div>
+        <div class="field">
+          <label>Stop Loss <span style="color:#4b5563">(optionnel)</span></label>
+          <input type="text" inputmode="decimal" id="f-sl" placeholder="pour calcul en R">
+        </div>
+      </div>
+      <div class="field">
+        <label>Note <span style="color:#4b5563">(optionnel)</span></label>
+        <input type="text" id="f-notes" placeholder="contexte, ressenti, erreur à corriger...">
+      </div>
+      <button class="btn-primary" id="addTradeBtn">Enregistrer le trade</button>
+    </div>
+  </div>
+
+  <div id="tab-history" class="tab-content">
+    <button class="btn-secondary" id="exportCsvBtn">Exporter en CSV</button>
+    <div id="historyList"></div>
+  </div>
+
+  <div id="tab-stats" class="tab-content">
+    <div id="statsContent"></div>
+  </div>
+
+  <div id="tab-settings" class="tab-content">
+    <div class="card">
+      <div class="field">
+        <label>Capital initial ($)</label>
+        <input type="text" inputmode="decimal" id="s-capital">
+        <div class="hint">Sert de référence pour le drawdown et le rendement total.</div>
+      </div>
+      <div class="field">
+        <label>Taille d'1 lot (unités de l'actif)</label>
+        <input type="text" inputmode="decimal" id="s-contract">
+        <div class="hint">Dépend de ton broker — vérifie dans les specs de ton compte.</div>
+      </div>
+      <button class="btn-primary" id="saveSettingsBtn">Enregistrer les paramètres</button>
+    </div>
+  </div>
+
+  <footer>Les données sont sauvegardées localement dans ce navigateur, sur cet appareil. Exporte régulièrement en CSV pour garder une copie de sauvegarde.</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "trading_journal_data_v2";
+  var DOW_NAMES = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  var MONTH_NAMES = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+
+  var state = { trades: [], initialCapital: 1000, contractSize: 1, direction: "achat" };
+
+  // ---------- Stockage ----------
+  // Tente systématiquement les DEUX mécanismes (stockage Claude + stockage du
+  // navigateur) à chaque lecture/écriture, indépendamment l'un de l'autre.
+  // Comme l'un des deux peut échouer selon l'environnement exact où l'outil
+  // est ouvert, ne pas dépendre d'un seul maximise les chances qu'au moins
+  // un des deux fonctionne réellement.
+  function hasClaudeStorage() {
+    return typeof window.storage !== "undefined" && window.storage !== null;
+  }
+
+  async function loadData() {
+    var loaded = false;
+
+    if (hasClaudeStorage()) {
+      try {
+        var res = await window.storage.get(STORAGE_KEY, false);
+        if (res && res.value) {
+          applyLoadedPayload(res.value);
+          loaded = true;
+        }
+      } catch (e) {
+        // clé absente côté Claude, ou stockage indisponible -> on essaie localStorage ensuite
+      }
+    }
+
+    if (!loaded) {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          applyLoadedPayload(raw);
+          loaded = true;
+        }
+      } catch (e) {
+        // ni l'un ni l'autre n'a de données -> démarrage à vide, c'est normal la première fois
+      }
+    }
+  }
+
+  function applyLoadedPayload(raw) {
+    var parsed = JSON.parse(raw);
+    state.trades = parsed.trades || [];
+    state.initialCapital = parsed.initialCapital != null ? parsed.initialCapital : 1000;
+    state.contractSize = parsed.contractSize != null ? parsed.contractSize : 1;
+  }
+
+  async function saveData() {
+    var payload = JSON.stringify({
+      trades: state.trades, initialCapital: state.initialCapital, contractSize: state.contractSize
+    });
+
+    var claudeOk = false;
+    if (hasClaudeStorage()) {
+      try {
+        var result = await window.storage.set(STORAGE_KEY, payload, false);
+        claudeOk = !!result;
+      } catch (e) {
+        claudeOk = false;
+      }
+    }
+
+    var localOk = false;
+    try {
+      localStorage.setItem(STORAGE_KEY, payload);
+      localOk = true;
+    } catch (e) {
+      localOk = false;
+    }
+
+    if (!claudeOk && !localOk) {
+      showError("La sauvegarde a échoué des deux façons possibles sur cet appareil. Tes trades restent visibles pour l'instant, mais exporte en CSV (onglet Historique) pour ne rien perdre.", "warn");
+      return false;
+    }
+    return true;
+  }
+
+  // ---------- Utilitaires ----------
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function todayStr() { var d = new Date(); return d.toISOString().slice(0, 10); }
+  function nowTimeStr() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function parseNum(v) {
+    if (typeof v !== "string") return parseFloat(v);
+    var cleaned = v.trim().replace(",", ".");
+    return cleaned === "" ? NaN : parseFloat(cleaned);
+  }
+  function fmtUSD(n) {
+    if (n === null || n === undefined || isNaN(n)) return "—";
+    var sign = n < 0 ? "-" : "";
+    return sign + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtPct(n) {
+    if (n === null || n === undefined || isNaN(n)) return "—";
+    return (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
+  }
+  function fmtR(n) {
+    if (n === null || n === undefined || isNaN(n)) return "—";
+    return (n >= 0 ? "+" : "") + n.toFixed(2) + "R";
+  }
+  function escapeHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s == null ? "" : s;
+    return d.innerHTML;
+  }
+
+  var errorTimeout = null;
+  function showError(msg, kind) {
+    var box = document.getElementById("errorBox");
+    var cls = kind === "warn" ? "warn-box" : "error-box";
+    box.innerHTML = '<div class="' + cls + '">' + escapeHtml(msg) + "</div>";
+    clearTimeout(errorTimeout);
+    if (kind === "warn") {
+      errorTimeout = setTimeout(function () { box.innerHTML = ""; }, 6000);
+    }
+  }
+  function clearError() { document.getElementById("errorBox").innerHTML = ""; }
+
+  // ---------- Onglets ----------
+  document.querySelectorAll(".tab-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".tab-btn").forEach(function (b) { b.classList.remove("active"); });
+      document.querySelectorAll(".tab-content").forEach(function (c) { c.classList.remove("active"); });
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+      if (btn.dataset.tab === "stats") renderStats();
+      if (btn.dataset.tab === "history") renderHistory();
+    });
+  });
+
+  // ---------- Formulaire d'ajout ----------
+  document.getElementById("btn-achat").addEventListener("click", function () {
+    state.direction = "achat";
+    document.getElementById("btn-achat").classList.add("selected");
+    document.getElementById("btn-vente").classList.remove("selected");
+  });
+  document.getElementById("btn-vente").addEventListener("click", function () {
+    state.direction = "vente";
+    document.getElementById("btn-vente").classList.add("selected");
+    document.getElementById("btn-achat").classList.remove("selected");
+  });
+
+  document.getElementById("addTradeBtn").addEventListener("click", async function () {
+    var entry = parseNum(document.getElementById("f-entry").value);
+    var exit = parseNum(document.getElementById("f-exit").value);
+    var lot = parseNum(document.getElementById("f-lot").value);
+    var slRaw = document.getElementById("f-sl").value.trim();
+    var sl = slRaw !== "" ? parseNum(slRaw) : null;
+    var date = document.getElementById("f-date").value || todayStr();
+    var time = document.getElementById("f-time").value || "";
+    var asset = document.getElementById("f-asset").value.trim() || "BTCUSD";
+    var notes = document.getElementById("f-notes").value.trim();
+
+    if (isNaN(entry) || entry <= 0 || isNaN(exit) || exit <= 0 || isNaN(lot) || lot <= 0) {
+      showError("Prix d'entrée, prix de sortie et lot sont obligatoires (valeurs > 0).");
+      return;
+    }
+    if (slRaw !== "" && (isNaN(sl) || sl <= 0)) {
+      showError("Le Stop Loss doit être un nombre > 0, ou laissé vide.");
+      return;
+    }
+    clearError();
+
+    var positionSize = lot * state.contractSize;
+    var pnl = state.direction === "achat" ? (exit - entry) * positionSize : (entry - exit) * positionSize;
+    var risk = sl !== null ? Math.abs(entry - sl) * positionSize : null;
+    var rMultiple = risk && risk > 0 ? pnl / risk : null;
+
+    state.trades.push({
+      id: uid(), date: date, time: time, asset: asset, direction: state.direction,
+      entry: entry, exit: exit, lot: lot, sl: sl, notes: notes, pnl: pnl, rMultiple: rMultiple
+    });
+
+    // reset du formulaire (on garde date/heure pratiques pour le prochain trade)
+    document.getElementById("f-entry").value = "";
+    document.getElementById("f-exit").value = "";
+    document.getElementById("f-lot").value = "";
+    document.getElementById("f-sl").value = "";
+    document.getElementById("f-notes").value = "";
+
+    renderHistory();
+
+    var saved = await saveData();
+    if (saved) {
+      var box = document.getElementById("errorBox");
+      box.innerHTML = '<div class="warn-box" style="color:var(--long);background:rgba(14,203,129,0.08);border-color:rgba(14,203,129,0.25)">Trade enregistré et sauvegardé ✓</div>';
+      errorTimeout = setTimeout(function () { box.innerHTML = ""; }, 2200);
+    }
+  });
+
+  async function deleteTrade(id) {
+    state.trades = state.trades.filter(function (t) { return t.id !== id; });
+    renderHistory();
+    await saveData();
+  }
+
+  // ---------- Export CSV ----------
+  document.getElementById("exportCsvBtn").addEventListener("click", function () {
+    var header = "date,heure,actif,direction,entree,sl,sortie,lot,pnl,r_multiple,notes";
+    var rows = sortedTrades().map(function (t) {
+      return [t.date, t.time || "", t.asset, t.direction, t.entry, t.sl != null ? t.sl : "",
+        t.exit, t.lot, t.pnl.toFixed(2), t.rMultiple != null ? t.rMultiple.toFixed(2) : "",
+        (t.notes || "").replace(/,/g, ";")].join(",");
+    });
+    var csv = [header].concat(rows).join("\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "journal_de_trading.csv"; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ---------- Réglages ----------
+  document.getElementById("saveSettingsBtn").addEventListener("click", async function () {
+    var cap = parseNum(document.getElementById("s-capital").value);
+    var cs = parseNum(document.getElementById("s-contract").value);
+    if (isNaN(cap) || cap <= 0 || isNaN(cs) || cs <= 0) {
+      showError("Capital et taille de lot doivent être des nombres > 0.");
+      return;
+    }
+    clearError();
+    state.initialCapital = cap;
+    state.contractSize = cs;
+    await saveData();
+  });
+
+  // ---------- Tri / accès trades ----------
+  function sortedTrades() {
+    return state.trades.slice().sort(function (a, b) {
+      var da = a.date + "T" + (a.time || "00:00");
+      var db = b.date + "T" + (b.time || "00:00");
+      if (da !== db) return da < db ? -1 : 1;
+      return a.id < b.id ? -1 : 1;
+    });
+  }
+
+  // ---------- Rendu Historique ----------
+  function renderHistory() {
+    var list = document.getElementById("historyList");
+    var trades = sortedTrades().slice().reverse();
+    if (trades.length === 0) {
+      list.innerHTML = '<div class="empty-msg">Aucun trade enregistré pour l\'instant.</div>';
+      return;
+    }
+    list.innerHTML = trades.map(function (t) {
+      var barColor = t.pnl >= 0 ? "var(--long)" : "var(--short)";
+      var pnlColor = t.pnl >= 0 ? "good" : "bad";
+      var dirClass = t.direction === "achat" ? "dir-achat" : "dir-vente";
+      var dirLabel = t.direction === "achat" ? "ACHAT" : "VENTE";
+      var rLine = t.rMultiple != null ? '<div style="font-size:11px;color:var(--text-dim)" class="mono">' + fmtR(t.rMultiple) + "</div>" : "";
+      var notesLine = t.notes ? '<div class="trade-notes">' + escapeHtml(t.notes) + "</div>" : "";
+      return (
+        '<div class="trade-row">' +
+        '<div class="trade-bar" style="background:' + barColor + '"></div>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div class="trade-meta mono">' + t.date + (t.time ? " " + t.time : "") + " · " + escapeHtml(t.asset) +
+        ' · <span class="' + dirClass + '">' + dirLabel + "</span></div>" +
+        '<div class="trade-main mono">' + t.entry + " → " + t.exit + ' <span style="color:#4b5563">· lot ' + t.lot + "</span></div>" +
+        notesLine +
+        "</div>" +
+        '<div style="text-align:right;flex-shrink:0">' +
+        '<div class="trade-pnl mono ' + pnlColor + '">' + fmtUSD(t.pnl) + "</div>" + rLine +
+        "</div>" +
+        '<button class="trade-del" data-id="' + t.id + '">✕</button>' +
+        "</div>"
+      );
+    }).join("");
+
+    list.querySelectorAll(".trade-del").forEach(function (btn) {
+      btn.addEventListener("click", function () { deleteTrade(btn.dataset.id); });
+    });
+  }
+
+  // ---------- Calcul des statistiques ----------
+  function computeStats() {
+    var trades = sortedTrades();
+    if (trades.length === 0) return null;
+
+    var equity = state.initialCapital, peak = state.initialCapital, maxDD = 0, maxDDPct = 0;
+    var equityCurve = [{ idx: 0, equity: state.initialCapital, label: "Départ" }];
+    var grossProfit = 0, grossLoss = 0, wins = 0, losses = 0;
+    var curWinStreak = 0, curLossStreak = 0, maxWinStreak = 0, maxLossStreak = 0;
+    var dailyPnl = {}, dowStats = {}, hourStats = {}, monthStats = {};
+    var dirStats = { achat: { pnl: 0, n: 0, wins: 0 }, vente: { pnl: 0, n: 0, wins: 0 } };
+
+    trades.forEach(function (t, i) {
+      equity += t.pnl;
+      peak = Math.max(peak, equity);
+      var dd = equity - peak;
+      var ddPct = peak !== 0 ? (dd / peak) * 100 : 0;
+      if (dd < maxDD) { maxDD = dd; maxDDPct = ddPct; }
+      equityCurve.push({ idx: i + 1, equity: equity, label: t.date });
+
+      if (t.pnl > 0) { grossProfit += t.pnl; wins++; curWinStreak++; curLossStreak = 0; }
+      else { grossLoss += -t.pnl; losses++; curLossStreak++; curWinStreak = 0; }
+      maxWinStreak = Math.max(maxWinStreak, curWinStreak);
+      maxLossStreak = Math.max(maxLossStreak, curLossStreak);
+
+      dailyPnl[t.date] = (dailyPnl[t.date] || 0) + t.pnl;
+
+      var dow = new Date(t.date + "T12:00:00").getDay();
+      if (!dowStats[dow]) dowStats[dow] = { pnl: 0, n: 0, wins: 0 };
+      dowStats[dow].pnl += t.pnl; dowStats[dow].n++; if (t.pnl > 0) dowStats[dow].wins++;
+
+      if (t.time) {
+        var hour = parseInt(t.time.split(":")[0], 10);
+        if (!isNaN(hour)) {
+          if (!hourStats[hour]) hourStats[hour] = { pnl: 0, n: 0, wins: 0 };
+          hourStats[hour].pnl += t.pnl; hourStats[hour].n++; if (t.pnl > 0) hourStats[hour].wins++;
+        }
+      }
+
+      var monthKey = t.date.slice(0, 7); // YYYY-MM
+      if (!monthStats[monthKey]) monthStats[monthKey] = { totalR: 0, nR: 0, pnl: 0, n: 0 };
+      monthStats[monthKey].pnl += t.pnl; monthStats[monthKey].n++;
+      if (t.rMultiple != null && !isNaN(t.rMultiple)) { monthStats[monthKey].totalR += t.rMultiple; monthStats[monthKey].nR++; }
+
+      dirStats[t.direction].pnl += t.pnl; dirStats[t.direction].n++; if (t.pnl > 0) dirStats[t.direction].wins++;
+    });
+
+    var n = trades.length;
+    var winRate = wins / n;
+    var profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : 0);
+    var avgWin = wins > 0 ? grossProfit / wins : 0;
+    var avgLoss = losses > 0 ? grossLoss / losses : 0;
+    var expectancy = winRate * avgWin - (1 - winRate) * avgLoss;
+    var totalPnl = grossProfit - grossLoss;
+    var totalReturnPct = (totalPnl / state.initialCapital) * 100;
+
+    var bestTrade = trades.reduce(function (a, b) { return a.pnl > b.pnl ? a : b; });
+    var worstTrade = trades.reduce(function (a, b) { return a.pnl < b.pnl ? a : b; });
+
+    var dailyEntries = Object.keys(dailyPnl).map(function (d) { return { date: d, pnl: dailyPnl[d] }; });
+    var bestDay = dailyEntries.reduce(function (a, b) { return a.pnl > b.pnl ? a : b; }, dailyEntries[0]);
+    var worstDay = dailyEntries.reduce(function (a, b) { return a.pnl < b.pnl ? a : b; }, dailyEntries[0]);
+
+    var dowBreakdown = Object.keys(dowStats).map(function (dow) {
+      var s = dowStats[dow];
+      return { day: DOW_NAMES[dow], pnl: s.pnl, n: s.n, winRate: s.wins / s.n, dowIdx: parseInt(dow, 10) };
+    }).sort(function (a, b) { return a.dowIdx - b.dowIdx; });
+
+    var hourBreakdown = Object.keys(hourStats).map(function (h) {
+      var s = hourStats[parseInt(h, 10)];
+      return { hour: parseInt(h, 10), pnl: s.pnl, n: s.n, winRate: s.wins / s.n };
+    }).sort(function (a, b) { return a.hour - b.hour; });
+    var bestHour = hourBreakdown.length ? hourBreakdown.reduce(function (a, b) { return a.pnl > b.pnl ? a : b; }) : null;
+    var worstHour = hourBreakdown.length ? hourBreakdown.reduce(function (a, b) { return a.pnl < b.pnl ? a : b; }) : null;
+
+    var monthBreakdown = Object.keys(monthStats).sort().map(function (m) {
+      var s = monthStats[m];
+      return { month: m, totalR: s.totalR, nR: s.nR, pnl: s.pnl, n: s.n };
+    });
+
+    var withR = trades.filter(function (t) { return t.rMultiple != null && !isNaN(t.rMultiple); });
+    var avgR = withR.length > 0 ? withR.reduce(function (s, t) { return s + t.rMultiple; }, 0) / withR.length : null;
+
+    var lossRate = losses / n;
+    var currentStreakType = curWinStreak > 0 ? "gains" : (curLossStreak > 0 ? "pertes" : null);
+    var currentStreakCount = curWinStreak > 0 ? curWinStreak : curLossStreak;
+    var currentStreakPct = n > 0 ? (currentStreakCount / n) * 100 : 0;
+
+    return {
+      n: n, winRate: winRate, lossRate: lossRate, wins: wins, losses: losses,
+      profitFactor: profitFactor, avgWin: avgWin, avgLoss: avgLoss,
+      expectancy: expectancy, totalPnl: totalPnl, totalReturnPct: totalReturnPct,
+      maxDD: maxDD, maxDDPct: maxDDPct, bestTrade: bestTrade, worstTrade: worstTrade,
+      bestDay: bestDay, worstDay: worstDay, dowBreakdown: dowBreakdown,
+      hourBreakdown: hourBreakdown, bestHour: bestHour, worstHour: worstHour,
+      monthBreakdown: monthBreakdown, dirStats: dirStats,
+      maxWinStreak: maxWinStreak, maxLossStreak: maxLossStreak,
+      currentStreakType: currentStreakType, currentStreakCount: currentStreakCount, currentStreakPct: currentStreakPct,
+      equityCurve: equityCurve, avgR: avgR, rCount: withR.length, finalEquity: equity
+    };
+  }
+
+  // ---------- SVG courbe de capital ----------
+  function renderEquitySVG(curve, initialCapital) {
+    var w = 600, h = 160, padL = 44, padR = 8, padT = 10, padB = 8;
+    var values = curve.map(function (p) { return p.equity; });
+    var minV = Math.min.apply(null, values), maxV = Math.max.apply(null, values);
+    if (minV === maxV) { minV -= 1; maxV += 1; }
+    var innerW = w - padL - padR, innerH = h - padT - padB;
+
+    function xAt(i) { return padL + (i / (curve.length - 1 || 1)) * innerW; }
+    function yAt(v) { return padT + innerH - ((v - minV) / (maxV - minV)) * innerH; }
+
+    var points = curve.map(function (p, i) { return xAt(i).toFixed(1) + "," + yAt(p.equity).toFixed(1); }).join(" ");
+    var refY = yAt(initialCapital).toFixed(1);
+    var lineColor = curve[curve.length - 1].equity >= initialCapital ? "#0ecb81" : "#f6465d";
+
+    return (
+      '<svg viewBox="0 0 ' + w + " " + h + '" width="100%" height="150" preserveAspectRatio="none" style="overflow:visible">' +
+      '<line x1="' + padL + '" y1="' + refY + '" x2="' + (w - padR) + '" y2="' + refY + '" stroke="#334155" stroke-dasharray="4 4" stroke-width="1"/>' +
+      '<text x="2" y="' + (parseFloat(refY) + 4) + '" fill="#64748b" font-size="9" font-family="ui-monospace,monospace">' + Math.round(minV) + "</text>" +
+      '<text x="2" y="' + (padT + 8) + '" fill="#64748b" font-size="9" font-family="ui-monospace,monospace">' + Math.round(maxV) + "</text>" +
+      '<polyline points="' + points + '" fill="none" stroke="' + lineColor + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+      "</svg>"
+    );
+  }
+
+  // ---------- Barres génériques ----------
+  function renderBarRows(entries, labelKey, valueKey, countKey, maxAbs) {
+    return entries.map(function (e) {
+      var pnl = e[valueKey];
+      var pct = maxAbs > 0 ? Math.min((Math.abs(pnl) / maxAbs) * 100, 100) : 0;
+      var color = pnl >= 0 ? "var(--long)" : "var(--short)";
+      return (
+        '<div class="bar-row">' +
+        '<div class="bar-label">' + e[labelKey] + "</div>" +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + "%;background:" + color + '"></div></div>' +
+        '<div class="bar-value mono ' + (pnl >= 0 ? "good" : "bad") + '">' + fmtUSD(pnl) + "</div>" +
+        '<div class="bar-count">' + e[countKey] + "×</div>" +
+        "</div>"
+      );
+    }).join("");
+  }
+
+  // ---------- Rendu Stats ----------
+  function renderStats() {
+    var el = document.getElementById("statsContent");
+    var s = computeStats();
+    if (!s) {
+      el.innerHTML = '<div class="empty-msg">Ajoute au moins un trade pour voir tes statistiques.</div>';
+      return;
+    }
+
+    var maxDaily = Math.max.apply(null, s.dowBreakdown.map(function (d) { return Math.abs(d.pnl); }).concat([1]));
+    var maxHourly = s.hourBreakdown.length ? Math.max.apply(null, s.hourBreakdown.map(function (d) { return Math.abs(d.pnl); }).concat([1])) : 1;
+
+    var hourRows = s.hourBreakdown.map(function (e) {
+      return { label: String(e.hour).padStart(2, "0") + "h", pnl: e.pnl, n: e.n };
+    });
+    var dowRows = s.dowBreakdown.map(function (e) { return { label: e.day, pnl: e.pnl, n: e.n }; });
+
+    var monthRowsHtml = s.monthBreakdown.map(function (m) {
+      var rCls = m.totalR >= 0 ? "good" : "bad";
+      var monthLabel = MONTH_NAMES[parseInt(m.month.slice(5, 7), 10) - 1] + " " + m.month.slice(0, 4);
+      return (
+        "<tr><td>" + monthLabel + "</td><td>" + m.n + '</td><td class="' + rCls + '">' +
+        (m.nR > 0 ? fmtR(m.totalR) : "—") + "</td><td>" + (m.nR > 0 ? m.nR : "—") + '</td><td class="' +
+        (m.pnl >= 0 ? "good" : "bad") + '">' + fmtUSD(m.pnl) + "</td></tr>"
+      );
+    }).join("");
+
+    el.innerHTML =
+      '<div class="card">' +
+      '<div class="stat-label">Capital actuel</div>' +
+      '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">' +
+      '<span class="mono" style="font-size:26px;font-weight:700">' + fmtUSD(s.finalEquity) + "</span>" +
+      '<span class="mono ' + (s.totalReturnPct >= 0 ? "good" : "bad") + '" style="font-size:13px">' + fmtPct(s.totalReturnPct) + "</span>" +
+      "</div>" +
+      renderEquitySVG(s.equityCurve, state.initialCapital) +
+      "</div>" +
+
+      '<div class="stat-grid">' +
+      statCard("Win rate", (s.winRate * 100).toFixed(1) + "%") +
+      statCard("Profit factor", s.profitFactor === Infinity ? "∞" : s.profitFactor.toFixed(2)) +
+      statCard("Max drawdown", fmtPct(s.maxDDPct), "bad") +
+      statCard("Espérance / trade", fmtUSD(s.expectancy), s.expectancy >= 0 ? "good" : "bad") +
+      statCard("Trades", s.n) +
+      statCard("Gain moyen", fmtUSD(s.avgWin), "good") +
+      statCard("Perte moyenne", fmtUSD(-s.avgLoss), "bad") +
+      (s.avgR !== null ? statCard("R moyen (" + s.rCount + ")", fmtR(s.avgR), s.avgR >= 0 ? "good" : "bad") : "") +
+      "</div>" +
+
+      '<div class="card">' +
+      '<div class="card-title">Trades gagnants / perdants</div>' +
+      '<div class="stat-grid" style="margin-bottom:0">' +
+      statCard("Trades gagnants", s.wins + " (" + (s.winRate * 100).toFixed(1) + "%)", "good") +
+      statCard("Trades perdants", s.losses + " (" + (s.lossRate * 100).toFixed(1) + "%)", "bad") +
+      statCard(
+        "Série en cours",
+        s.currentStreakType ? s.currentStreakCount + " " + s.currentStreakType + " (" + s.currentStreakPct.toFixed(1) + "%)" : "—",
+        s.currentStreakType === "gains" ? "good" : (s.currentStreakType === "pertes" ? "bad" : "")
+      ) +
+      "</div></div>" +
+
+      '<div class="card">' +
+      '<div class="card-title">Meilleur / pire jour & trade</div>' +
+      '<div class="stat-grid" style="margin-bottom:0">' +
+      statCard("Meilleur jour (" + s.bestDay.date + ")", fmtUSD(s.bestDay.pnl), "good") +
+      statCard("Pire jour (" + s.worstDay.date + ")", fmtUSD(s.worstDay.pnl), "bad") +
+      statCard("Meilleur trade", fmtUSD(s.bestTrade.pnl), "good") +
+      statCard("Pire trade", fmtUSD(s.worstTrade.pnl), "bad") +
+      statCard("Série de gains max", s.maxWinStreak + " trades") +
+      statCard("Série de pertes max", s.maxLossStreak + " trades") +
+      "</div></div>" +
+
+      (s.bestHour ? (
+        '<div class="card">' +
+        '<div class="card-title">Meilleure / pire heure de prise de trade</div>' +
+        '<div class="stat-grid" style="margin-bottom:14px">' +
+        statCard("Meilleure heure — " + String(s.bestHour.hour).padStart(2, "0") + "h", fmtUSD(s.bestHour.pnl), "good") +
+        statCard("Pire heure — " + String(s.worstHour.hour).padStart(2, "0") + "h", fmtUSD(s.worstHour.pnl), "bad") +
+        "</div>" +
+        renderBarRows(hourRows, "label", "pnl", "n", maxHourly) +
+        "</div>"
+      ) : (
+        '<div class="card"><div class="card-title">Heures de prise de trade</div>' +
+        '<div class="hint">Renseigne l\'heure d\'entrée sur tes trades pour voir cette analyse.</div></div>'
+      )) +
+
+      '<div class="card">' +
+      '<div class="card-title">Par jour de la semaine</div>' +
+      renderBarRows(dowRows, "label", "pnl", "n", maxDaily) +
+      "</div>" +
+
+      '<div class="card">' +
+      '<div class="card-title">Total RR gagné par mois</div>' +
+      '<table class="month-table"><thead><tr><th>Mois</th><th>Trades</th><th>Total RR</th><th>Nb R</th><th>P&L $</th></tr></thead>' +
+      "<tbody>" + monthRowsHtml + "</tbody></table>" +
+      '<div class="hint" style="margin-top:8px">Le RR n\'est calculé que pour les trades où un Stop Loss a été renseigné.</div>' +
+      "</div>" +
+
+      '<div class="card">' +
+      '<div class="card-title">Achat vs Vente</div>' +
+      '<div class="stat-grid" style="margin-bottom:0">' +
+      statCard("Achats (" + s.dirStats.achat.n + ")", fmtUSD(s.dirStats.achat.pnl), s.dirStats.achat.pnl >= 0 ? "good" : "bad") +
+      statCard("Ventes (" + s.dirStats.vente.n + ")", fmtUSD(s.dirStats.vente.pnl), s.dirStats.vente.pnl >= 0 ? "good" : "bad") +
+      "</div></div>";
+  }
+
+  function statCard(label, value, colorClass) {
+    return (
+      '<div class="stat-card"><div class="stat-label">' + label + '</div>' +
+      '<div class="stat-value ' + (colorClass || "") + '">' + value + "</div></div>"
+    );
+  }
+
+  // ---------- Initialisation ----------
+  async function init() {
+    await loadData();
+    document.getElementById("f-date").value = todayStr();
+    document.getElementById("f-time").value = nowTimeStr();
+    document.getElementById("s-capital").value = String(state.initialCapital);
+    document.getElementById("s-contract").value = String(state.contractSize);
+    renderHistory();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
